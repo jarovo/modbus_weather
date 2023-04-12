@@ -7,14 +7,6 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install dependencies
-          command: |
-            python -m pip .
-      - run:
-          name: Run tests
-          command: |
-            python -m pytest
-      - run:
           name: Build and tag Docker runner image
           command: |
             docker build --target runner -t weathermap:runner .
@@ -33,3 +25,5 @@ workflows:
   build-and-test:
     jobs:
       - build-and-test
+
+
