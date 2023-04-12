@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+import os
 import argparse
 import asyncio
 import logging
 import requests
 from operator import itemgetter
 
-from server_async import run_async_server, setup_server
+from .server_async import run_async_server, setup_server
 from pymodbus.datastore import (
     ModbusSequentialDataBlock,
     ModbusServerContext,
@@ -19,9 +20,24 @@ _logger = logging.getLogger()
 OPENWEATHERMAP_API = "https://api.openweathermap.org/data/2.5/weather?"
 
 
+class EnvDefault(argparse.Action):
+    def __init__(self, envvar, required=True, default=None, **kwargs):
+        if not default and envvar:
+            if envvar in os.environ:
+                default = os.environ[envvar]
+        if required and default:
+            required = False
+        super(EnvDefault, self).__init__(default=default, required=required, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, values)
+
+
 def make_args_parser():
     parser = argparse.ArgumentParser(description="OpenWeatherAPI to modbus adapter.")
-    parser.add_argument("api_key", help="Openweather API key.")
+    parser.add_argument(
+        "api_key", action=EnvDefault, envvar="API_KEY", help="Openweather API key."
+    )
     parser.add_argument(
         "--log",
         default="info",
@@ -65,12 +81,25 @@ def make_openweathermap_request(args):
 
 
 def friendly_itemgetter(*items):
+    """
+    Contrary to the operator.itemgetter this one is more verbose in the error
+    messages when an item is missing.
+
+    >>> my_dict = dict(foo = "baz1", bar = "baz2")
+    
+    >>> friendly_itemgetter("foo")(my_dict)
+    'baz1'
+    >>> friendly_itemgetter("foo", "bar")(my_dict)
+    ('baz1', 'baz2')
+    >>> friendly_itemgetter("bar", "foo")(my_dict)
+    ('baz2', 'baz1')
+    """
     if len(items) == 1:
-        item = items[0]
+        item_name = items[0]
 
         def g(obj):
             try:
-                return obj[item]
+                return obj[item_name]
             except KeyError as exc:
                 raise KeyError(f"{exc} when processing {obj}")
 
@@ -87,6 +116,18 @@ def friendly_itemgetter(*items):
 
 
 def tuplify(*items):
+    '''
+    When given a singleton object, return tuple. This is in
+    contrast with the builtin tuple().
+
+    >>> tuple(object())
+    Traceback (most recent call last):
+        ...
+    TypeError: 'object' object is not iterable
+
+    >>> tuplify(object())
+    (<object ...>,)
+    '''
     try:
         return tuple(*items)
     except TypeError:
@@ -158,7 +199,7 @@ async def run_updating_server(args):
     await run_async_server(args)
 
 
-if __name__ == "__main__":
+def main():
     parser = make_args_parser()
     cmd_args = parser.parse_args()
     cmd_args.comm = "tcp"
