@@ -19,7 +19,7 @@ jobs:
           name: Publish Docker image to DockerHub
           command: |
             docker tag weathermap:latest jaryh3/weathermap:runner
-            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+            echo "$DOCKERHUB_PASSWORD" | docker login -u jaryH3 --password-stdin
             docker push jaryh3/weathermap:latest
 
 workflows:
