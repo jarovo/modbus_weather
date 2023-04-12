@@ -27,7 +27,7 @@ Running the app
 # Run the tests
 ---------------
     .. code-block:: bash
-      
+
         docker build --target builder -t modbus_weather:dev .
         docker run modbus_weather:dev
 
@@ -35,5 +35,5 @@ Running the app
 # Debug in container
 --------------------
     .. code-block:: bash
-  
+
       docker run -it --entrypoint /bin/bash -v ../bash_history:/root/.bash_history:z -v .:/app:z modbus_weather:dev

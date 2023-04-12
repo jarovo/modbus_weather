@@ -86,7 +86,7 @@ def friendly_itemgetter(*items):
     messages when an item is missing.
 
     >>> my_dict = dict(foo = "baz1", bar = "baz2")
-    
+
     >>> friendly_itemgetter("foo")(my_dict)
     'baz1'
     >>> friendly_itemgetter("foo", "bar")(my_dict)
@@ -116,7 +116,7 @@ def friendly_itemgetter(*items):
 
 
 def tuplify(*items):
-    '''
+    """
     When given a singleton object, return tuple. This is in
     contrast with the builtin tuple().
 
@@ -127,7 +127,7 @@ def tuplify(*items):
 
     >>> tuplify(object())
     (<object ...>,)
-    '''
+    """
     try:
         return tuple(*items)
     except TypeError:
