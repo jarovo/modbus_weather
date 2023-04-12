@@ -1,0 +1,35 @@
+version: 2.1
+
+jobs:
+  build-and-test:
+    docker:
+      - image: docker.io/arm32v7/python:3.9-slim-buster
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            python -m pip .
+      - run:
+          name: Run tests
+          command: |
+            python -m pytest
+      - run:
+          name: Build and tag Docker runner image
+          command: |
+            docker build --target runner -t weathermap:runner .
+      - run:
+          name: Build and tag Docker builder image
+          command: |
+            docker build --target builder -t weathermap:builder .
+      - run:
+          name: Publish Docker image to DockerHub
+          command: |
+            docker tag weathermap:latest jaryh3/weathermap:runner
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+            docker push jaryh3/weathermap:latest
+
+workflows:
+  build-and-test:
+    jobs:
+      - build-and-test
