@@ -2,7 +2,10 @@ version: 2.1
 
 jobs:
   build-and-test:
-    executor: arm.medium
+    machine:
+      image: ubuntu-2004:202101-01
+    resource_class: arm.medium
+
     docker:
       - image: docker.io/arm32v7/python:3.9-slim-buster
     steps:
