@@ -19,7 +19,7 @@ jobs:
           name: Publish Docker image to DockerHub
           command: |
             docker tag modbus_weather:runner jaryh3/modbus_weather:latest
-            echo "$DOCKERHUB_PASSWORD" | docker login -u jaryH3 --password-stdin
+            echo "$DOCKERHUB_PASSWORD" | docker login -u jaryh3 --password-stdin
             docker push jaryh3/modbus_weather:latest
 
 workflows:
