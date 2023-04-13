@@ -4,7 +4,7 @@ jobs:
   build-and-test:
     machine:
       image: ubuntu-2004:202101-01
-    resource_class: arm.medium
+      cpu: arm
     steps:
       - checkout
       - run:
