@@ -2,11 +2,13 @@ version: 2.1
 
 jobs:
   build-and-test:
-    machine:
-      image: docker
-      cpu: arm
+    resource_class: arm.medium
+    docker:
+      - image: docker:20.10.7-dind
     steps:
       - checkout
+      - setup_remote_docker:
+          version: 20.10.7
       - run:
           name: Build and tag Docker runner image
           command: |
