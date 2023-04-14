@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Create Dockerfile for python with cashed dnf and pip installed packages
-FROM python:3.10-alpine AS runner
+FROM arm32v7/python:3.10-alpine AS runner
 
 # Preinstall git and pip packages
 RUN apk add git
