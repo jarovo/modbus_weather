@@ -20,11 +20,12 @@ from pymodbus.payload import BinaryPayloadDecoder, BinaryPayloadBuilder
 _logger = logging.getLogger
 
 
-OPENWEATHERMAP_API = "https://api.openweathermap.org/data/2.5/weather?"
+OPENWEATHERMAP_API = "https://api.openweathermap.org/data/3.0/onecall?"
 
 
 def get_version():
     return 0, 0
+
 
 class EnvDefault(argparse.Action):
     def __init__(self, envvar, required=True, default=None, **kwargs):
@@ -43,6 +44,9 @@ def make_args_parser():
     parser = argparse.ArgumentParser(description="OpenWeatherAPI to modbus adapter.")
     parser.add_argument(
         "api_key", action=EnvDefault, envvar="API_KEY", help="Openweather API key."
+    )
+    parser.add_argument(
+        "--api-query-period", default=5*60, type=float, help="Openweather API request period."
     )
     parser.add_argument(
         "--log-level",
@@ -80,7 +84,7 @@ def get_lat_lon():
 def make_openweathermap_request(args):
     lat, lon = get_lat_lon()
     resp = requests.get(
-        OPENWEATHERMAP_API, params=dict(lat=lat, lon=lon, appid=args.api_key)
+        OPENWEATHERMAP_API, params=dict(lat=lat, lon=lon, appid=args.api_key, exclude="minutely,hourly,daily,alerts")
     ).json()
     _logger().debug(f"openweatherapi response: {resp}")
     return resp
@@ -108,7 +112,6 @@ def friendly_itemgetter(*items):
                 return obj[item_name]
             except KeyError as exc:
                 raise KeyError(f"{exc} when processing {obj}")
-
     else:
         try:
 
@@ -144,11 +147,18 @@ def tuplify(*items):
 
 
 def extract_vals(resp):
-    vals = []
-    for key, items in getters.items():
-        _logger().debug(f"{key}, {items}")
-        vals.extend(tuplify(friendly_itemgetter(*items)(resp[key])))
-    _logger().debug(f"values: {vals}")
+    current = resp['current']
+    vals = [
+        current['temp'],
+        current['pressure'],
+        current['humidity'],
+        current['wind_speed'],
+        current['wind_deg'],
+        current['wind_gust'],
+        current['clouds'],
+        current['sunrise'],
+        current['sunset'],
+    ]
     return vals
 
 
@@ -190,7 +200,7 @@ async def updating_task(args):
         except Exception as exc:
             _logger().exception("Exception happened when updating the values.")
         finally:
-            await asyncio.sleep(60)
+            await asyncio.sleep(args.api_query_period)
 
 
 def setup_updating_server(args):
