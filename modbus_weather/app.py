@@ -192,7 +192,7 @@ async def updating_task(args):
             timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
             values = []
             values.extend(get_version())
-            values.extend((timestamp,))
+            values.extend(convert_ints_to_floats(timestamp,))
             values.extend(convert_ints_to_floats(openweather_api_vals))
             txt = f"new values: {str(values)}"
             _logger().debug(txt)
