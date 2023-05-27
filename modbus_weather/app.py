@@ -45,7 +45,7 @@ def make_args_parser():
         help="Log level",
     )
     parser.add_argument(
-        "--modbus-listen-addres",
+        "--modbus-listen-address",
         dest="address",
         default="0.0.0.0",
         help="Address for the Modbus slave (server) to listen on.",
