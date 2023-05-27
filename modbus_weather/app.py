@@ -5,6 +5,8 @@ import asyncio
 import logging
 import requests
 from operator import itemgetter
+from datetime import datetime, timezone
+
 
 from .server_async import run_async_server, setup_server
 from pymodbus.datastore import (
@@ -17,8 +19,12 @@ from pymodbus.payload import BinaryPayloadDecoder, BinaryPayloadBuilder
 
 _logger = logging.getLogger
 
+
 OPENWEATHERMAP_API = "https://api.openweathermap.org/data/2.5/weather?"
 
+
+def get_version():
+    return 0, 0
 
 class EnvDefault(argparse.Action):
     def __init__(self, envvar, required=True, default=None, **kwargs):
@@ -147,7 +153,8 @@ def extract_vals(resp):
 
 
 async def get_weather_values(args):
-    return extract_vals(make_openweathermap_request(args))
+    vals = extract_vals(make_openweathermap_request(args))
+    return vals
 
 
 def convert_ints_to_floats(vals):
@@ -164,17 +171,26 @@ async def updating_task(args):
     that there is a lrace condition for the update.
     """
     while True:
-        _logger().debug("updating the context")
-        fc_as_hex = 3
-        slave_id = 0x00
-        address = 0x10
-        # values = context[slave_id].getValues(fc_as_hex, address, count=3)
-        openweather_api_vals = await get_weather_values(args)
-        values = convert_ints_to_floats(openweather_api_vals)
-        txt = f"new values: {str(values)}"
-        _logger().debug(txt)
-        args.context[slave_id].setValues(fc_as_hex, address, values)
-        await asyncio.sleep(60)
+        try:
+            _logger().debug("updating the context")
+            fc_as_hex = 3
+            slave_id = 0x00
+            address = 0x10
+            # values = context[slave_id].getValues(fc_as_hex, address, count=3)
+            openweather_api_vals = await get_weather_values(args)
+            dt = datetime.now()
+            timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+            values = []
+            values.extend(get_version())
+            values.extend((timestamp,))
+            values.extend(convert_ints_to_floats(openweather_api_vals))
+            txt = f"new values: {str(values)}"
+            _logger().debug(txt)
+            args.context[slave_id].setValues(fc_as_hex, address, values)
+        except Exception as exc:
+            _logger().exception("Exception happened when updating the values.")
+        finally:
+            await asyncio.sleep(60)
 
 
 def setup_updating_server(args):
@@ -214,6 +230,6 @@ def main():
     cmd_args.framer = None
 
     set_logger(cmd_args)
-    
+
     run_args = setup_updating_server(cmd_args)
     asyncio.run(run_updating_server(run_args), debug=('DEBUG' == get_log_level(cmd_args)))
