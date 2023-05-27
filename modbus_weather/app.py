@@ -15,7 +15,7 @@ from pymodbus.datastore import (
 from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder, BinaryPayloadBuilder
 
-_logger = logging.getLogger()
+_logger = logging.getLogger
 
 OPENWEATHERMAP_API = "https://api.openweathermap.org/data/2.5/weather?"
 
@@ -39,7 +39,7 @@ def make_args_parser():
         "api_key", action=EnvDefault, envvar="API_KEY", help="Openweather API key."
     )
     parser.add_argument(
-        "--log",
+        "--log-level",
         default="info",
         choices=["critical", "error", "warning", "info", "debug"],
         help="Log level",
@@ -76,7 +76,7 @@ def make_openweathermap_request(args):
     resp = requests.get(
         OPENWEATHERMAP_API, params=dict(lat=lat, lon=lon, appid=args.api_key)
     ).json()
-    _logger.debug(f"openweatherapi response: {resp}")
+    _logger().debug(f"openweatherapi response: {resp}")
     return resp
 
 
@@ -140,9 +140,9 @@ def tuplify(*items):
 def extract_vals(resp):
     vals = []
     for key, items in getters.items():
-        _logger.debug(f"{key}, {items}")
+        _logger().debug(f"{key}, {items}")
         vals.extend(tuplify(friendly_itemgetter(*items)(resp[key])))
-    _logger.debug(f"values: {vals}")
+    _logger().debug(f"values: {vals}")
     return vals
 
 
@@ -164,7 +164,7 @@ async def updating_task(args):
     that there is a lrace condition for the update.
     """
     while True:
-        _logger.debug("updating the context")
+        _logger().debug("updating the context")
         fc_as_hex = 3
         slave_id = 0x00
         address = 0x10
@@ -172,7 +172,7 @@ async def updating_task(args):
         openweather_api_vals = await get_weather_values(args)
         values = convert_ints_to_floats(openweather_api_vals)
         txt = f"new values: {str(values)}"
-        _logger.debug(txt)
+        _logger().debug(txt)
         args.context[slave_id].setValues(fc_as_hex, address, values)
         await asyncio.sleep(60)
 
@@ -199,10 +199,21 @@ async def run_updating_server(args):
     await run_async_server(args)
 
 
+def set_logger(cmd_args):
+    logging.basicConfig(level=get_log_level(cmd_args))
+    
+
+def get_log_level(cmd_args):
+    return cmd_args.log_level.upper()
+
+
 def main():
     parser = make_args_parser()
     cmd_args = parser.parse_args()
     cmd_args.comm = "tcp"
     cmd_args.framer = None
+
+    set_logger(cmd_args)
+    
     run_args = setup_updating_server(cmd_args)
-    asyncio.run(run_updating_server(run_args), debug=True)
+    asyncio.run(run_updating_server(run_args), debug=('DEBUG' == get_log_level(cmd_args)))
