@@ -172,10 +172,17 @@ async def get_weather_values(args):
     return vals
 
 
-def convert_to_registers(vals):
+def convert_to_32bit_float_registers(vals):
     builder = BinaryPayloadBuilder()
     for v in vals:
         builder.add_32bit_float(v)
+    return builder.to_registers()
+
+
+def convert_to_64bit_float_registers(vals):
+    builder = BinaryPayloadBuilder()
+    for v in vals:
+        builder.add_64bit_float(v)
     return builder.to_registers()
 
 
@@ -197,11 +204,12 @@ async def updating_task(args):
 
             dt = datetime.now()
             timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+            _logger.debug(f'timestamp: {timestamp}')
 
             values = []
             values.extend(get_version())
-            values.extend(convert_to_registers((timestamp,)))
-            values.extend(convert_to_registers(openweather_api_vals))
+            values.extend(convert_to_64bit_float_registers((timestamp,)))
+            values.extend(convert_to_32bit_float_registers(openweather_api_vals))
             
             printout = list(f'{v:b}' for v in values)                          
             _logger().debug(f'New values: {str(values)}')                      
