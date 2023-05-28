@@ -189,7 +189,7 @@ async def updating_task(args):
         try:
             _logger().debug("updating the context")
             fc_as_hex = 3
-            slave_id = args.slave_id
+            slave_id = args.modbus_slave_id
             address = 0x10
 
             # values = context[slave_id].getValues(fc_as_hex, address, count=3)
