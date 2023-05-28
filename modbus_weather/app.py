@@ -66,6 +66,11 @@ def make_args_parser():
         default="502",
         help="Modbus slave (server) port.",
     )
+    parser.add_argument(
+        "--modbus-slave-id",
+        type=int,
+        help="Modbus slave id.",
+    )
     return parser
 
 
