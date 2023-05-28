@@ -204,7 +204,7 @@ async def updating_task(args):
 
             dt = datetime.now()
             timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
-            _logger.debug(f'timestamp: {timestamp}')
+            _logger().debug(f'timestamp: {timestamp}')
 
             values = []
             values.extend(get_version())
