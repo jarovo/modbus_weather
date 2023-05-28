@@ -24,7 +24,7 @@ OPENWEATHERMAP_API = "https://api.openweathermap.org/data/3.0/onecall?"
 
 
 def get_version():
-    return 0, 0
+    return 0, 1
 
 
 class EnvDefault(argparse.Action):
@@ -167,7 +167,7 @@ async def get_weather_values(args):
     return vals
 
 
-def convert_ints_to_floats(vals):
+def convert_to_registers(vals):
     builder = BinaryPayloadBuilder()
     for v in vals:
         builder.add_32bit_float(v)
@@ -184,18 +184,24 @@ async def updating_task(args):
         try:
             _logger().debug("updating the context")
             fc_as_hex = 3
-            slave_id = 0x00
+            slave_id = args.slave_id
             address = 0x10
+
             # values = context[slave_id].getValues(fc_as_hex, address, count=3)
             openweather_api_vals = await get_weather_values(args)
+
             dt = datetime.now()
             timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+
             values = []
             values.extend(get_version())
-            values.extend(convert_ints_to_floats(timestamp,))
-            values.extend(convert_ints_to_floats(openweather_api_vals))
-            txt = f"new values: {str(values)}"
-            _logger().debug(txt)
+            values.extend(convert_to_registers((timestamp,)))
+            values.extend(convert_to_registers(openweather_api_vals))
+            
+            printout = list(f'{v:b}' for v in values)                          
+            _logger().debug(f'New values: {str(values)}')                      
+            _logger().debug(f'New values: {printout}') 
+
             args.context[slave_id].setValues(fc_as_hex, address, values)
         except Exception as exc:
             _logger().exception("Exception happened when updating the values.")
