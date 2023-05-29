@@ -5,6 +5,8 @@ import asyncio
 import logging
 import requests
 from operator import itemgetter
+from datetime import datetime, timezone
+
 
 from .server_async import run_async_server, setup_server
 from pymodbus.datastore import (
@@ -15,9 +17,14 @@ from pymodbus.datastore import (
 from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder, BinaryPayloadBuilder
 
-_logger = logging.getLogger()
+_logger = logging.getLogger
 
-OPENWEATHERMAP_API = "https://api.openweathermap.org/data/2.5/weather?"
+
+OPENWEATHERMAP_API = "https://api.openweathermap.org/data/3.0/onecall?"
+
+
+def get_version():
+    return 0, 1
 
 
 class EnvDefault(argparse.Action):
@@ -39,13 +46,19 @@ def make_args_parser():
         "api_key", action=EnvDefault, envvar="API_KEY", help="Openweather API key."
     )
     parser.add_argument(
-        "--log",
+        "--api-query-period",
+        default=5 * 60,
+        type=float,
+        help="Openweather API request period.",
+    )
+    parser.add_argument(
+        "--log-level",
         default="info",
         choices=["critical", "error", "warning", "info", "debug"],
         help="Log level",
     )
     parser.add_argument(
-        "--modbus-listen-addres",
+        "--modbus-listen-address",
         dest="address",
         default="0.0.0.0",
         help="Address for the Modbus slave (server) to listen on.",
@@ -55,6 +68,11 @@ def make_args_parser():
         dest="port",
         default="502",
         help="Modbus slave (server) port.",
+    )
+    parser.add_argument(
+        "--modbus-slave-id",
+        type=int,
+        help="Modbus slave id.",
     )
     return parser
 
@@ -74,9 +92,12 @@ def get_lat_lon():
 def make_openweathermap_request(args):
     lat, lon = get_lat_lon()
     resp = requests.get(
-        OPENWEATHERMAP_API, params=dict(lat=lat, lon=lon, appid=args.api_key)
+        OPENWEATHERMAP_API,
+        params=dict(
+            lat=lat, lon=lon, appid=args.api_key, exclude="minutely,hourly,daily,alerts"
+        ),
     ).json()
-    _logger.debug(f"openweatherapi response: {resp}")
+    _logger().debug(f"openweatherapi response: {resp}")
     return resp
 
 
@@ -138,22 +159,37 @@ def tuplify(*items):
 
 
 def extract_vals(resp):
-    vals = []
-    for key, items in getters.items():
-        _logger.debug(f"{key}, {items}")
-        vals.extend(tuplify(friendly_itemgetter(*items)(resp[key])))
-    _logger.debug(f"values: {vals}")
+    current = resp["current"]
+    vals = [
+        current["temp"],
+        current["pressure"],
+        current["humidity"],
+        current["wind_speed"],
+        current["wind_deg"],
+        current["wind_gust"],
+        current["clouds"],
+        current["sunrise"],
+        current["sunset"],
+    ]
     return vals
 
 
 async def get_weather_values(args):
-    return extract_vals(make_openweathermap_request(args))
+    vals = extract_vals(make_openweathermap_request(args))
+    return vals
 
 
-def convert_ints_to_floats(vals):
+def convert_to_32bit_float_registers(vals):
     builder = BinaryPayloadBuilder()
     for v in vals:
         builder.add_32bit_float(v)
+    return builder.to_registers()
+
+
+def convert_to_64bit_float_registers(vals):
+    builder = BinaryPayloadBuilder()
+    for v in vals:
+        builder.add_64bit_float(v)
     return builder.to_registers()
 
 
@@ -164,17 +200,33 @@ async def updating_task(args):
     that there is a lrace condition for the update.
     """
     while True:
-        _logger.debug("updating the context")
-        fc_as_hex = 3
-        slave_id = 0x00
-        address = 0x10
-        # values = context[slave_id].getValues(fc_as_hex, address, count=3)
-        openweather_api_vals = await get_weather_values(args)
-        values = convert_ints_to_floats(openweather_api_vals)
-        txt = f"new values: {str(values)}"
-        _logger.debug(txt)
-        args.context[slave_id].setValues(fc_as_hex, address, values)
-        await asyncio.sleep(60)
+        try:
+            _logger().debug("updating the context")
+            fc_as_hex = 3
+            slave_id = args.modbus_slave_id
+            address = 0x10
+
+            # values = context[slave_id].getValues(fc_as_hex, address, count=3)
+            openweather_api_vals = await get_weather_values(args)
+
+            dt = datetime.now()
+            timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+            _logger().debug(f"timestamp: {timestamp}")
+
+            values = []
+            values.extend(get_version())
+            values.extend(convert_to_64bit_float_registers((timestamp,)))
+            values.extend(convert_to_32bit_float_registers(openweather_api_vals))
+
+            printout = list(f"{v:b}" for v in values)
+            _logger().debug(f"New values: {str(values)}")
+            _logger().debug(f"New values: {printout}")
+
+            args.context[slave_id].setValues(fc_as_hex, address, values)
+        except Exception as exc:
+            _logger().exception("Exception happened when updating the values.")
+        finally:
+            await asyncio.sleep(args.api_query_period)
 
 
 def setup_updating_server(args):
@@ -199,10 +251,23 @@ async def run_updating_server(args):
     await run_async_server(args)
 
 
+def set_logger(cmd_args):
+    logging.basicConfig(level=get_log_level(cmd_args))
+
+
+def get_log_level(cmd_args):
+    return cmd_args.log_level.upper()
+
+
 def main():
     parser = make_args_parser()
     cmd_args = parser.parse_args()
     cmd_args.comm = "tcp"
     cmd_args.framer = None
+
+    set_logger(cmd_args)
+
     run_args = setup_updating_server(cmd_args)
-    asyncio.run(run_updating_server(run_args), debug=True)
+    asyncio.run(
+        run_updating_server(run_args), debug=("DEBUG" == get_log_level(cmd_args))
+    )
