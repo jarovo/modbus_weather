@@ -46,7 +46,10 @@ def make_args_parser():
         "api_key", action=EnvDefault, envvar="API_KEY", help="Openweather API key."
     )
     parser.add_argument(
-        "--api-query-period", default=5*60, type=float, help="Openweather API request period."
+        "--api-query-period",
+        default=5 * 60,
+        type=float,
+        help="Openweather API request period.",
     )
     parser.add_argument(
         "--log-level",
@@ -89,7 +92,10 @@ def get_lat_lon():
 def make_openweathermap_request(args):
     lat, lon = get_lat_lon()
     resp = requests.get(
-        OPENWEATHERMAP_API, params=dict(lat=lat, lon=lon, appid=args.api_key, exclude="minutely,hourly,daily,alerts")
+        OPENWEATHERMAP_API,
+        params=dict(
+            lat=lat, lon=lon, appid=args.api_key, exclude="minutely,hourly,daily,alerts"
+        ),
     ).json()
     _logger().debug(f"openweatherapi response: {resp}")
     return resp
@@ -117,6 +123,7 @@ def friendly_itemgetter(*items):
                 return obj[item_name]
             except KeyError as exc:
                 raise KeyError(f"{exc} when processing {obj}")
+
     else:
         try:
 
@@ -152,17 +159,17 @@ def tuplify(*items):
 
 
 def extract_vals(resp):
-    current = resp['current']
+    current = resp["current"]
     vals = [
-        current['temp'],
-        current['pressure'],
-        current['humidity'],
-        current['wind_speed'],
-        current['wind_deg'],
-        current['wind_gust'],
-        current['clouds'],
-        current['sunrise'],
-        current['sunset'],
+        current["temp"],
+        current["pressure"],
+        current["humidity"],
+        current["wind_speed"],
+        current["wind_deg"],
+        current["wind_gust"],
+        current["clouds"],
+        current["sunrise"],
+        current["sunset"],
     ]
     return vals
 
@@ -204,16 +211,16 @@ async def updating_task(args):
 
             dt = datetime.now()
             timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
-            _logger().debug(f'timestamp: {timestamp}')
+            _logger().debug(f"timestamp: {timestamp}")
 
             values = []
             values.extend(get_version())
             values.extend(convert_to_64bit_float_registers((timestamp,)))
             values.extend(convert_to_32bit_float_registers(openweather_api_vals))
-            
-            printout = list(f'{v:b}' for v in values)                          
-            _logger().debug(f'New values: {str(values)}')                      
-            _logger().debug(f'New values: {printout}') 
+
+            printout = list(f"{v:b}" for v in values)
+            _logger().debug(f"New values: {str(values)}")
+            _logger().debug(f"New values: {printout}")
 
             args.context[slave_id].setValues(fc_as_hex, address, values)
         except Exception as exc:
@@ -246,7 +253,7 @@ async def run_updating_server(args):
 
 def set_logger(cmd_args):
     logging.basicConfig(level=get_log_level(cmd_args))
-    
+
 
 def get_log_level(cmd_args):
     return cmd_args.log_level.upper()
@@ -261,4 +268,6 @@ def main():
     set_logger(cmd_args)
 
     run_args = setup_updating_server(cmd_args)
-    asyncio.run(run_updating_server(run_args), debug=('DEBUG' == get_log_level(cmd_args)))
+    asyncio.run(
+        run_updating_server(run_args), debug=("DEBUG" == get_log_level(cmd_args))
+    )

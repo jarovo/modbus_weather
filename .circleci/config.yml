@@ -16,7 +16,7 @@ commands:
           name: Check versions
           command: |
             qemu-aarch64-static --version
-            update-binfmts --version 
+            update-binfmts --version
       - run:
           name: Create builder
           command: |
@@ -32,7 +32,7 @@ jobs:
       - setup
       - run:
           name: Build ARM docker latest image
-          command: | 
+          command: |
             DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build --platform \
             linux/arm,linux/x86_64 --target runner -t modbus_weather:latest .
 
@@ -40,11 +40,11 @@ jobs:
             #docker buildx build --plarform linux/x86_64 --target runner -t modbus_weather:latest .
       - run:
           name: Build ARM docker builder image
-          command: | 
+          command: |
             DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build --platform \
             linux/arm,linux/x86_64 --target builder -t modbus_weather_builder:latest .
       - run:
           name: Publish ARM docker latest image
-          command: | 
+          command: |
             echo "$DOCKERHUB_PASSWORD" | docker login -u jaryh3 --password-stdin
             DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build --platform linux/arm --target runner -t jaryh3/modbus_weather:latest --push .
