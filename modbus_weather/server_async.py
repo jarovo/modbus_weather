@@ -22,7 +22,6 @@ from pymodbus.server import (
 )
 from pymodbus.version import version
 
-
 _logger = logging.getLogger()
 
 
